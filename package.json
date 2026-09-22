@@ -1,0 +1,27 @@
+{
+  "name": "@delgaetan/netmsg-sdk",
+  "version": "1.0.0",
+  "description": "Messagerie texte en ligne de commande, sans serveur a heberger ni port a ouvrir. Base reutilisable pour construire sa propre messagerie.",
+  "main": "core/NetMsgClient.js",
+  "bin": {
+    "netmsg": "./cli.js"
+  },
+  "keywords": [
+    "chat",
+    "cli",
+    "messaging",
+    "p2p",
+    "no-server",
+    "encryption",
+    "terminal"
+  ],
+  "author": "Delgaetan",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Delgaetan/NetMsg.git"
+  },
+  "engines": {
+    "node": ">=14"
+  }
+}
