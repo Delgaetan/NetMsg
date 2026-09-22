@@ -1,6 +1,6 @@
 {
   "name": "@delgaetan_dev_44/netmsg-sdk",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Messagerie texte en ligne de commande, sans serveur a heberger ni port a ouvrir. Base reutilisable pour construire sa propre messagerie.",
   "main": "core/NetMsgClient.js",
   "bin": {
