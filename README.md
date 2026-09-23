@@ -88,3 +88,35 @@ Meme logique dans core/crypto.js. L'interface attendue :
 - Ce projet est une base pedagogique et pour un usage entre personnes de
   confiance, pas un remplacant a des messageries chiffrees de bout en
   bout auditees (Signal, etc.).
+
+## Stockage persistant (optionnel)
+
+Tout ce qui précède fonctionne sans rien d'autre que Node.js : `cli.js`
+marche tel quel avec seulement ntfy.sh, sans inscription ni clé API.
+
+Le SDK inclut EN PLUS un module de stockage persistant
+(`core/PostStore.js` + `core/storage/`), utile si vous voulez aller
+au-delà d'un chat éphémère (par exemple un fil d'actu, des profils, un
+historique qui survit après avoir fermé le programme). **Ce n'est pas
+obligatoire** - c'est une brique à ajouter uniquement si vous en avez
+besoin.
+
+Contrairement à ntfy.sh (rien à créer, complètement anonyme), le
+stockage persistant demande de créer un compte gratuit sur un service
+externe et de récupérer une clé API :
+
+- `core/storage/firebaseStorage.js` - via Firebase Realtime Database
+  (compte Google)
+- `core/storage/jsonbinStorage.js` - via jsonbin.io (compte + clé API,
+  et idéalement une "Access Key" limitée plutôt que la clé principale
+  du compte si la clé doit être partagée avec quelqu'un d'autre)
+
+Voir les commentaires en haut de chacun de ces deux fichiers pour la
+mise en place complète (création de compte, récupération de la clé,
+création d'un premier bin/projet).
+
+Exemples d'utilisation, combinant ce stockage avec `NetMsgClient` (le
+stockage garde les données, ntfy.sh prévient instantanément qu'il y a
+du nouveau) :
+- `examples/mini-feed.js` (avec Firebase)
+- `examples/mini-feed-jsonbin.js` (avec jsonbin.io)
