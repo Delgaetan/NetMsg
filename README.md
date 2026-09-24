@@ -309,3 +309,68 @@ fournis (Firebase, jsonbin, memoryStorage) ne l'implemente pour
 l'instant - revoke() leve donc une erreur explicite plutot que
 d'echouer silencieusement. En attendant, gardez un ttlMs court si
 vous avez besoin d'une deconnexion rapide.
+
+## Combinaisons possibles
+
+Tout est optionnel et independant : prenez uniquement ce dont vous
+avez besoin.
+
+### 1. Juste le chat (rien d'autre)
+
+    const { NetMsgClient } = require('./core/NetMsgClient');
+    const client = new NetMsgClient({ secret: 'phrase secrete', name: 'Alice' });
+    client.on('message', (msg) => console.log(msg.name, ':', msg.text));
+    client.connect();
+    client.send('Salut !');
+
+### 2. Chat + comptes (pseudo/mot de passe, sans base de donnees separee)
+
+    const { Accounts } = require('./core/Accounts');
+    const { Sessions } = require('./core/Sessions');
+    const { memoryStorage } = require('./core/storage/memoryStorage');
+    const { NetMsgClient } = require('./core/NetMsgClient');
+
+    const accounts = new Accounts({ storage: memoryStorage });
+    const sessions = new Sessions({ storage: memoryStorage });
+
+    const account = await accounts.login('Alice', 'motdepasse123');
+    const token = await sessions.create(account);
+
+    const client = new NetMsgClient({ secret: 'phrase secrete', name: account.username });
+
+### 3. Chat + base de donnees persistante (posts/feed, sans comptes)
+
+    const { PostStore } = require('./core/PostStore');
+    const { createFirebaseStorage } = require('./core/storage/firebaseStorage');
+    const { NetMsgClient } = require('./core/NetMsgClient');
+
+    const store = new PostStore({ storage: createFirebaseStorage('https://VOTRE-PROJET-default-rtdb.firebaseio.com') });
+    await store.post({ author: 'Alice', text: 'Salut', at: Date.now() });
+    const feed = await store.feed({ limit: 20 });
+
+    const notifier = new NetMsgClient({ secret: 'phrase secrete', name: 'notifier' });
+
+### 4. Les trois ensemble (comptes + base de donnees + chat)
+
+    const { Accounts } = require('./core/Accounts');
+    const { Sessions } = require('./core/Sessions');
+    const { PostStore } = require('./core/PostStore');
+    const { createFirebaseStorage } = require('./core/storage/firebaseStorage');
+    const { NetMsgClient } = require('./core/NetMsgClient');
+
+    const storage = createFirebaseStorage('https://VOTRE-PROJET-default-rtdb.firebaseio.com');
+    const accounts = new Accounts({ storage });
+    const sessions = new Sessions({ storage });
+    const store = new PostStore({ storage });
+
+    const account = await accounts.login('Alice', 'motdepasse123');
+    const token = await sessions.create(account);
+    await store.post({ author: account.username, text: 'Salut', at: Date.now() });
+
+    const client = new NetMsgClient({ secret: 'phrase secrete', name: account.username });
+
+Chaque brique accepte n'importe quel backend de stockage
+(memoryStorage pour tester, firebaseStorage ou jsonbinStorage pour
+persister). On peut aussi melanger : Accounts sur Firebase et
+PostStore sur jsonbin par exemple, rien ne les oblige a partager le
+meme backend.
