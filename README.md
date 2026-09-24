@@ -374,3 +374,37 @@ Chaque brique accepte n'importe quel backend de stockage
 persister). On peut aussi melanger : Accounts sur Firebase et
 PostStore sur jsonbin par exemple, rien ne les oblige a partager le
 meme backend.
+
+## Messages directs par pseudo (optionnel)
+
+DirectMessage.js permet d'ecrire a quelqu'un juste en connaissant son
+pseudo (via Accounts.search()), sans se mettre d'accord au prealable
+sur une phrase secrete commune.
+
+Exemple :
+
+    const { Accounts } = require('./core/Accounts');
+    const { createDirectClient } = require('./core/DirectMessage');
+    const { memoryStorage } = require('./core/storage/memoryStorage');
+
+    const accounts = new Accounts({ storage: memoryStorage });
+
+    const found = await accounts.search('alice');
+    if (found) {
+      const client = createDirectClient({ toUsername: found.username, myUsername: 'Bob' });
+      client.on('message', (msg) => console.log(msg.name, ':', msg.text));
+      client.connect();
+      client.send('Salut Alice !');
+    }
+
+ATTENTION - limite importante a comprendre avant d'utiliser ce
+module : le "secret" du salon se calcule directement a partir du
+pseudo, qui est par definition cherchable. N'IMPORTE QUI connaissant
+ce pseudo peut calculer le meme salon et la meme cle de dechiffrement.
+Ca protege le contenu des messages du regard du relais (ntfy.sh voit
+toujours du texte chiffre), mais PAS d'un autre utilisateur du SDK
+qui chercherait aussi ce pseudo. C'est donc plus proche d'une "boite
+de reception publique par pseudo" que d'un vrai message prive au sens
+strict. Pour une confidentialite garantie entre deux personnes
+precises, utilisez toujours NetMsgClient avec une phrase secrete que
+seules ces deux personnes connaissent.
