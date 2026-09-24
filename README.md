@@ -120,3 +120,192 @@ stockage garde les données, ntfy.sh prévient instantanément qu'il y a
 du nouveau) :
 - `examples/mini-feed.js` (avec Firebase)
 - `examples/mini-feed-jsonbin.js` (avec jsonbin.io)
+
+## Transport navigateur (optionnel)
+
+Par defaut, `core/transports/ntfyTransport.js` utilise le module
+`https` de Node.js et ne fonctionne donc que cote serveur (Termux,
+CLI, bot...). `core/transports/browserNtfyTransport.js` est une
+alternative qui fait exactement la meme chose avec des API 100%
+navigateur (`fetch` + `EventSource`), pour brancher un chat dans une
+page web, une extension ou une PWA. Meme relais (ntfy.sh), meme
+protocole : un client Node et un client navigateur peuvent discuter
+dans le meme salon sans rien changer d'autre.
+
+```js
+const client = new NetMsgClient({
+  secret: 'notre phrase secrete',
+  transport: browserNtfyTransport, // ou require(...) selon votre setup
+});
+ok
+"
+cd ~/netmsg-sdk
+cat > core/transports/browserNtfyTransport.js << 'EOF'
+const HOST = 'https://ntfy.sh';
+const RECONNECT_DELAY_MS = 2000;
+
+function connect(topic, onMessage, onError) {
+  let closed = false;
+  let source = null;
+
+  function open() {
+    if (closed) return;
+    source = new EventSource(`${HOST}/${encodeURIComponent(topic)}/sse`);
+
+    source.onmessage = (event) => {
+      let obj;
+      try {
+        obj = JSON.parse(event.data);
+      } catch (e) {
+        return;
+      }
+      if (obj.event === 'message' && typeof obj.message === 'string') {
+        onMessage(obj.message);
+      }
+    };
+
+    source.onerror = (event) => {
+      onError(new Error('browserNtfyTransport: connexion SSE interrompue'));
+      if (!closed) {
+        source.close();
+        setTimeout(open, RECONNECT_DELAY_MS);
+      }
+    };
+  }
+
+  open();
+
+  return {
+    close() {
+      closed = true;
+      if (source) source.close();
+    },
+  };
+}
+
+function send(topic, rawString) {
+  return fetch(`${HOST}/${encodeURIComponent(topic)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    body: rawString,
+  }).then((res) => {
+    if (!res.ok) {
+      throw new Error(`ntfy a repondu avec le code ${res.status}`);
+    }
+  });
+}
+
+const browserNtfyTransport = { connect, send };
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = browserNtfyTransport;
+} else if (typeof window !== 'undefined') {
+  window.browserNtfyTransport = browserNtfyTransport;
+}
+
+## Transport navigateur (optionnel)
+
+Par defaut, `core/transports/ntfyTransport.js` utilise le module
+`https` de Node.js et ne fonctionne donc que cote serveur (Termux,
+CLI, bot...). `core/transports/browserNtfyTransport.js` est une
+alternative qui fait exactement la meme chose avec des API 100%
+navigateur (`fetch` + `EventSource`), pour brancher un chat dans une
+page web, une extension ou une PWA. Meme relais (ntfy.sh), meme
+protocole : un client Node et un client navigateur peuvent discuter
+dans le meme salon sans rien changer d'autre.
+
+```js
+const client = new NetMsgClient({
+  secret: 'notre phrase secrete',
+  transport: browserNtfyTransport, // ou require(...) selon votre setup
+});"
+cd ~/netmsg-sdk
+cat > core/transports/browserNtfyTransport.js << 'EOF'
+const HOST = 'https://ntfy.sh';
+const RECONNECT_DELAY_MS = 2000;
+
+function connect(topic, onMessage, onError) {
+  let closed = false;
+  let source = null;
+
+  function open() {
+    if (closed) return;
+    source = new EventSource(`${HOST}/${encodeURIComponent(topic)}/sse`);
+
+    source.onmessage = (event) => {
+      let obj;
+      try {
+        obj = JSON.parse(event.data);
+      } catch (e) {
+        return;
+      }
+      if (obj.event === 'message' && typeof obj.message === 'string') {
+        onMessage(obj.message);
+      }
+    };
+
+    source.onerror = (event) => {
+      onError(new Error('browserNtfyTransport: connexion SSE interrompue'));
+      if (!closed) {
+        source.close();
+        setTimeout(open, RECONNECT_DELAY_MS);
+      }
+    };
+  }
+
+  open();
+
+  return {
+    close() {
+      closed = true;
+      if (source) source.close();
+    },
+  };
+}
+
+function send(topic, rawString) {
+  return fetch(`${HOST}/${encodeURIComponent(topic)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    body: rawString,
+  }).then((res) => {
+    if (!res.ok) {
+      throw new Error(`ntfy a repondu avec le code ${res.status}`);
+    }
+  });
+}
+
+const browserNtfyTransport = { connect, send };
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = browserNtfyTransport;
+} else if (typeof window !== 'undefined') {
+  window.browserNtfyTransport = browserNtfyTransport;
+}
+
+## Sessions (optionnel)
+
+Sessions.js complete Accounts.js : apres un login reussi, on cree un
+jeton opaque (un "token") que le client garde de son cote et renvoie
+ensuite pour prouver qui il est, sans redemander le mot de passe a
+chaque fois.
+
+Exemple :
+
+    const { Accounts } = require('./core/Accounts');
+    const { Sessions } = require('./core/Sessions');
+    const { memoryStorage } = require('./core/storage/memoryStorage');
+
+    const accounts = new Accounts({ storage: memoryStorage });
+    const sessions = new Sessions({ storage: memoryStorage, ttlMs: 1000 * 60 * 60 * 24 * 7 });
+
+    const account = await accounts.login('Bob', 'motdepasse123');
+    const token = await sessions.create(account);
+    const user = await sessions.validate(token);
+
+Limite connue : sessions.revoke(token) necessite que le backend de
+stockage propose une methode remove(path, id). Aucun des backends
+fournis (Firebase, jsonbin, memoryStorage) ne l'implemente pour
+l'instant - revoke() leve donc une erreur explicite plutot que
+d'echouer silencieusement. En attendant, gardez un ttlMs court si
+vous avez besoin d'une deconnexion rapide.
